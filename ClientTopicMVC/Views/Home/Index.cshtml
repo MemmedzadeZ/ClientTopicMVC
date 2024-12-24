@@ -1,0 +1,165 @@
+﻿@using Microsoft.AspNetCore.Html
+@model HomeViewModel
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="container my-5">
+    <div class="text-center">
+        <h1 class="mb-4">RabbitMQ Divisions</h1>
+    </div>
+
+    <div id="divisionList" class="text-center bg-light p-4 rounded shadow-sm">
+        @foreach (var division in Model.RabbitMQDivisions)
+        {
+            <div id="DD@division.Name" class="division-item">
+                <p class="division-name text-primary fw-bold"
+                   onclick="selectDivision('@division.Name',event)"
+                   style="cursor: pointer;">
+                    @division.Name
+                </p>
+
+                @if (division.RabbitMQDivisions != null && division.RabbitMQDivisions.Count > 0)
+                {
+                    @RenderSubDivisions(division.RabbitMQDivisions, division.Name)
+                }
+            </div>
+        }
+    </div>
+
+    <div class="mt-4 text-center">
+        <h5 class="fw-bold">Selected Division Path:</h5>
+        <p id="selectedDivisionPath" class="text-muted">None</p>
+    </div>
+
+    <div class="mt-5">
+        <h3>Received Messages</h3>
+        <div class="message-list bg-white p-4 rounded shadow-sm">
+            <ul class="list-unstyled">
+
+                    <li class="py-2 border-bottom">
+                      
+                    </li>
+               
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    .division-item {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin: 10px auto;
+        width: fit-content;
+        background-color: #f9f9f9;
+    }
+
+    .division-item:hover {
+        background-color: #f1f1f1;
+        border-color: #007bff;
+    }
+
+    .division-name {
+        font-size: 18px;
+        transition: color 0.3s ease;
+    }
+
+    .division-name:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+
+    .message-list ul li {
+        padding: 10px;
+        border-radius: 5px;
+    }
+
+    .message-list ul li:hover {
+        background-color: #f8f9fa;
+    }
+</style>
+
+<script>
+    let selectedDivision = `@Model.RoutingKey`;
+
+    if (selectedDivision != "") {
+        let ddElement = document.getElementById("DD" + selectedDivision);
+        let selectedDivisionPath = document.getElementById("selectedDivisionPath");
+
+        ddElement.style.border = "3px solid red";
+        selectedDivisionPath.innerHTML = selectedDivision;
+    }
+
+    function selectDivision(name, event) {
+        let selectedDivisionPath = document.getElementById("selectedDivisionPath");
+        let ddElement = document.getElementById("DD" + name);
+        let ddElementOld = document.getElementById("DD" + selectedDivision);
+
+        if (selectedDivisionPath.innerHTML == name) {
+            selectedDivisionPath.innerHTML = "None";
+            ddElement.style.border = "";
+            selectedDivision = "";
+        } else {
+            if (ddElementOld != null) {
+                ddElementOld.style.border = "";
+            }
+
+            selectedDivisionPath.innerHTML = name;
+            ddElement.style.border = "3px solid red";
+            selectedDivision = name;
+        }
+
+        sendRoutingKeyToServer();
+    }
+
+    function sendRoutingKeyToServer() {
+        console.log(selectedDivision);
+
+        fetch('/Home/StartListener', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ routingKey: selectedDivision })
+        })
+        .then(response => {
+            if (response.ok) {
+                console.log('Ok sendRoutingKeyToServer');
+            } else {
+                console.error('Error sendRoutingKeyToServer');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+</script>
+
+@functions {
+    public IHtmlContent RenderSubDivisions(List<RabbitMQDivision> subDivisions, string parentDivisionName)
+    {
+        var htmlContent = new HtmlContentBuilder();
+
+        htmlContent.AppendHtml("<ul class=\"list-unstyled ps-3\">");
+
+        foreach (var subDivision in subDivisions)
+        {
+            htmlContent.AppendHtml($"<li id=\"DD{subDivision.Name}\" class=\"subdivision-item\">");
+            htmlContent.AppendHtml($"<p onclick=\"selectDivision('{subDivision.Name}',event)\" class=\"text-secondary\" style=\"cursor: pointer;\">{subDivision.Name}</p>");
+
+            if (subDivision.RabbitMQDivisions != null && subDivision.RabbitMQDivisions.Count > 0)
+            {
+                htmlContent.AppendHtml(RenderSubDivisions(subDivision.RabbitMQDivisions, parentDivisionName + "." + subDivision.Name));
+            }
+
+            htmlContent.AppendHtml("</li>");
+        }
+
+        htmlContent.AppendHtml("</ul>");
+
+        return htmlContent;
+    }
+}
